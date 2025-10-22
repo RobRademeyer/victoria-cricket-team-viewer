@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Cricket Team Viewer</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h2 { margin-top: 40px; }
+    table { border-collapse: collapse; width: 100%; max-width: 800px; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; }
+	
+	.match-header {
+	  background: linear-gradient(to right, #004d00, #009933);
+	  color: white;
+	  padding: 20px;
+	  border-radius: 8px;
+	  margin-bottom: 30px;
+	  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+ 
+	.match-info {
+	  display: flex;
+	  justify-content: space-around;
+	  font-size: 1.2em;
+	  font-weight: bold;
+	  flex-wrap: wrap;
+	  gap: 10px;
+	}
+	
+	@media (max-width: 500px) {
+	  .match-info {flex-direction: column; align-items: flex-start;}
+	}
+ 
+    .label {
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="hometeam">Cricket Team Info</h1>
+<!--  <div id="metadata"></div> -->
+	<div id="matchHeader" class="match-header">
+		<div class="match-info">
+			<div><span class="label">🏏 Opponent:</span> <span id="opponent"></span></div>
+			<div><span class="label">📅 Date:</span> <span id="date"></span></div>
+			<div><span class="label">📍 Venue:</span> <span id="venue"></span></div>
+		</div>
+	</div>  
+  <table id="playersTable">
+    <thead></thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+	const urlParams   = new URLSearchParams(window.location.search);
+    const sheetName   = urlParams.get('team') || 'DefaultSheet';
+    let sheetId       = '1o6Y4zbDyNuUDilGJlW9kZvEX5CKX0OFalM6nVRX-TpE';
+    let apiKey        = 'AIzaSyCfptQwdwA6nRqv10JWRDRtpFM9ni908ko';
+	let vRangeHeading = `${sheetName}!B1:C4`;
+	let vRangePlayers = `${sheetName}!A6:E21`;
+
+    function fetchRange(range) {
+      var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + range + '?key=' + apiKey;
+      return fetch(url)
+        .then(function(response) {
+          return response.json();
+        })
+        .then(function(data) {
+          return data.values;
+        });
+    }
+
+
+function renderData() {
+  fetchRange(vRangeHeading).then(function(metadata) {
+  metadata.forEach(function(row) {
+    var key = row[0]?.trim().toLowerCase();
+    var value = row[1]?.trim();
+    if (key === 'opponent') document.getElementById('opponent').textContent = value;
+    if (key === 'date') document.getElementById('date').textContent = value;
+    if (key === 'venue') document.getElementById('venue').textContent = value;
+	if (key === 'team') {document.getElementById('hometeam').textContent = `${value} Team Information`;}
+    });
+  });
+
+  fetchRange(vRangePlayers).then(function(players) {
+    var headers = players[0];
+	//console.log(headers);
+    var rows = players.slice(1);
+	//console.log(rows);
+    var statusIndex = headers.indexOf('Status');
+	//console.log(statusIndex);
+	
+	var filteredRows = rows.filter(function(row) {
+	  var colB = row[1] && row[1].trim();
+	  var colC = row[2] && row[2].trim();
+	  return colB || colC;
+	});
+
+    var grouped = filteredRows.reduce(function(acc, row) {
+      var status = row[statusIndex]?.trim() || 'Pending';
+      var key = ['Yes', 'No', 'Pending'].includes(status) ? status : 'Pending';
+      acc[key] = acc[key] || [];
+      acc[key].push(row);
+      return acc;
+    }, { Yes: [], No: [], Pending: [] });
+
+    var tableContainer = document.getElementById('playersTable');
+    tableContainer.innerHTML = ''; // Clear previous content
+
+    var icons = { Yes: '✅', No: '❌', Pending: '⏳' };
+    ['Yes', 'Pending', 'No'].forEach(function(status) {
+      var sectionTitle = document.createElement('h3');
+      sectionTitle.textContent = 'Status: ' + status + ' '+ icons[status];
+      tableContainer.appendChild(sectionTitle);
+
+      var table = document.createElement('table');
+      table.style.marginBottom = '30px';
+
+      var thead = document.createElement('thead');
+      var headerRow = document.createElement('tr');
+      headers.forEach(function(h,i) {
+	  if (i !== statusIndex) {
+        var th = document.createElement('th');
+        th.textContent = h;
+        headerRow.appendChild(th);
+	  
+	  }
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      var tbody = document.createElement('tbody');
+      grouped[status].forEach(function(row) {
+        var tr = document.createElement('tr');
+
+        // Apply color based on status
+        if (status === 'Yes') tr.style.backgroundColor = '#e0ffe0';       // light green
+        else if (status === 'Pending') tr.style.backgroundColor = '#fffbe0'; // light yellow
+        else if (status === 'No') tr.style.backgroundColor = '#ffe0e0';    // light red
+
+        headers.forEach(function(_, i) {
+		if (i !== statusIndex) {
+          var td = document.createElement('td');
+          td.textContent = row[i] || '';
+          tr.appendChild(td);
+		}
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      tableContainer.appendChild(table);
+    });
+  });
+}
+
+    renderData();
+  </script>
+</body>
+</html>
+
+
