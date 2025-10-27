@@ -109,7 +109,7 @@ function renderData() {
       acc[key].push(row);
       return acc;
     }, { Yes: [], No: [], Pending: [] });
-
+	
     var tableContainer = document.getElementById('playersTable');
     tableContainer.innerHTML = ''; // Clear previous content
 
@@ -136,6 +136,7 @@ function renderData() {
       table.appendChild(thead);
 
       var tbody = document.createElement('tbody');
+	  var vRow  = 1;  // track row number
       grouped[status].forEach(function(row) {
         var tr = document.createElement('tr');
 
@@ -147,7 +148,12 @@ function renderData() {
         headers.forEach(function(_, i) {
 		if (i !== statusIndex) {
           var td = document.createElement('td');
-          td.textContent = row[i] || '';
+		  if (i === 0) {
+			td.textContent = vRow || '';
+			vRow++;
+		  } else {
+		    td.textContent = row[i] || '';
+		  }
           tr.appendChild(td);
 		}
         });
