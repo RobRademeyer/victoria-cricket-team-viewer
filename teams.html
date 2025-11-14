@@ -45,6 +45,7 @@
 	<div id="matchHeader" class="match-header">
 		<div class="match-info">
 			<div><span class="label">📅 Date:</span> <span id="date"></span></div>			
+			<div><span class="label">🕒 Time:</span> <span id="time"></span></div>		
 			<div><span class="label">🏏 Opponent:</span> <span id="opponent"></span></div>
 			<div><span class="label">📍 Venue:</span> <span id="venue"></span></div>
 			<div><span class="label">🧑‍🏫 Coach:</span> <span id="coach"></span></div>
@@ -60,8 +61,8 @@
     const sheetName   = urlParams.get('team') || 'DefaultSheet';
     let sheetId       = '1o6Y4zbDyNuUDilGJlW9kZvEX5CKX0OFalM6nVRX-TpE';
     let apiKey        = 'AIzaSyCfptQwdwA6nRqv10JWRDRtpFM9ni908ko';
-	let vRangeHeading = `${sheetName}!B1:C5`;
-	let vRangePlayers = `${sheetName}!A7:E32`;
+	let vRangeHeading = `${sheetName}!B1:C6`;
+	let vRangePlayers = `${sheetName}!A8:E33`;
 
     function fetchRange(range) {
       var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + range + '?key=' + apiKey;
@@ -82,6 +83,7 @@ function renderData() {
     var value = row[1]?.trim();
     if (key === 'opponent') document.getElementById('opponent').textContent = value;
     if (key === 'date') document.getElementById('date').textContent = value;
+	if (key === 'time') document.getElementById('time').textContent = value;
     if (key === 'venue') document.getElementById('venue').textContent = value;
 	if (key === 'coach') document.getElementById('coach').textContent = value;
 	if (key === 'team') {document.getElementById('hometeam').textContent = `${value} Team Information`;}
