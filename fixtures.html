@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Cricket Fixtures Viewer</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h2 { margin-top: 40px; }
+    table { border-collapse: collapse; width: 100%; max-width: 800px; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; }
+
+ 
+    .sheet-section {
+      background: linear-gradient(to right, #004d00, #009933);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .sheet-title {
+      font-size: 1.8em;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      text-align: center;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .match-info {
+      display: block;
+      font-size: 1.1em;
+      line-height: 1.6;
+      padding: 10px 0;
+    }
+
+    .match-info div {
+      margin-bottom: 8px;
+    }
+
+    .label {
+      font-weight: bold;
+      margin-right: 6px;
+    }
+
+    @media (max-width: 600px) {
+      .sheet-title {font-size: 1.4em;}
+      .match-info {font-size: 1em;}
+    }
+
+    .spinner {
+      text-align: center;
+      font-weight: bold;
+      padding: 20px;
+      font-size: 1.2em;
+      color: #004d00;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .loader {
+      border: 6px solid #eee;
+      border-top: 6px solid #004d00;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="spinner" class="spinner hidden">
+    <div class="loader"></div>
+  </div>
+
+  <template id="sheet-block">
+    <section class="sheet-section">
+      <h2 class="sheet-title"></h2>
+      <div class="match-info">
+        <div><span class="label">📅 Date:</span> <span class="match-date"></span></div>
+        <div><span class="label">🕒 Time:</span> <span class="match-time"></span></div>
+        <div><span class="label">🏏 Opponent:</span> <span class="match-opponent"></span></div>
+        <div><span class="label">📍 Venue:</span> <span class="match-venue"></span></div>
+        <div><span class="label">🧑‍🏫 Coach:</span> <span class="match-coach"></span></div>
+      </div>
+    </section>
+  </template>
+
+<div id="output"></div>  
+
+<script>
+  // These are the Google sheet references which make up the fixtures to display
+  const sheetRefs = [
+    'U10!B1:C6',
+    'U11!B1:C6',
+    'U12!B1:C6',
+    'U13!B1:C6',
+    'U15!B1:C6',
+    'U14 SSS!B1:C6',
+    'U16 SSS!B1:C6'
+  ];
+
+  // These are the other variables required
+  const sheetId = '1o6Y4zbDyNuUDilGJlW9kZvEX5CKX0OFalM6nVRX-TpE';
+  const apiKey  = 'AIzaSyCfptQwdwA6nRqv10JWRDRtpFM9ni908ko';
+
+  // Create a new Params object to build all of the parameters
+  const oParams  = new URLSearchParams();
+  // And then add the cell references
+  sheetRefs.forEach(range => {oParams.append('ranges', range);});
+  // Add the API key 
+  oParams.append('key', apiKey);
+  // And finally, build the URL to use in the Fetch
+  const vUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchGet?${oParams.toString()}`;
+
+  // Turn on the spinner
+  document.getElementById('spinner').classList.remove('hidden');
+
+  // Now lets fetch the data
+  fetch(vUrl)
+  .then(fetchResult => fetchResult.json())
+  .then(jsonData => {
+    const fragment = document.createDocumentFragment();
+    const template = document.getElementById('sheet-block');
+    jsonData.valueRanges.forEach(range => {
+      const clone = template.content.cloneNode(true);
+      const title = clone.querySelector('.sheet-title');
+      //const table = clone.querySelector('.sheet-table');
+
+      // Extract sheet name from range
+      const sheetName = range.range
+      .split('!')[0]
+      .replace(/^['"]+|['"]+$/g, '')  // removes leading/trailing single or double quotes
+      .trim() + ' Fixture';
+      // Build the Title
+      title.textContent = sheetName;
+
+      const infoMap = {
+        'Date': '.match-date',
+        'Time': '.match-time',
+        'Opponent': '.match-opponent',
+        'Venue': '.match-venue',
+        'Coach': '.match-coach'
+      };
+
+      // Build <div> rows
+      range.values.forEach(([label, value]) => {
+        const selector = infoMap[label];
+        if (selector) {
+          const target = clone.querySelector(selector);
+          if (target) target.textContent = value;
+        }
+      });
+
+      // Add to the fragment
+      fragment.appendChild(clone);
+    });
+
+    // Add the fragment to the document
+    document.getElementById('output').appendChild(fragment);
+  })
+  .catch(vError => {
+    console.error('Fetch error:', vError);
+    document.getElementById('output').textContent = 'Failed to load fixtures.';
+  })
+  .finally(() => {document.getElementById('spinner').classList.add('hidden')});
+</script>
+</body>
+</html>
+
+
