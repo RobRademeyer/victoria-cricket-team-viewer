@@ -21,6 +21,11 @@
       margin-bottom: 30px;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     }
+	
+	.sheet-section.no-fixture {
+	  background: linear-gradient(to right, #cc6600, #ff9933); /* orange */
+	  color: white;
+	}
 
     .sheet-title {
       font-size: 1.8em;
@@ -28,7 +33,7 @@
       margin-bottom: 10px;
       text-align: center;
       font-weight: bold;
-      text-transform: uppercase;
+      <!-- text-transform: uppercase; -->
       letter-spacing: 1px;
     }
 
@@ -108,6 +113,8 @@
     'U11!B1:C6',
     'U12!B1:C6',
     'U13!B1:C6',
+	'U13 Reds!B1:C6',
+	'U13 Blues!B1:C6',
     'U15!B1:C6',
     'U14 SSS!B1:C6',
     'U16 SSS!B1:C6'
@@ -135,6 +142,7 @@
   .then(jsonData => {
     const fragment = document.createDocumentFragment();
     const template = document.getElementById('sheet-block');
+	console.log(jsonData);
     jsonData.valueRanges.forEach(range => {
       const clone = template.content.cloneNode(true);
       const title = clone.querySelector('.sheet-title');
@@ -147,14 +155,46 @@
       .trim() + ' Fixture';
       // Build the Title
       title.textContent = sheetName;
+	  title.textContent = range.values;
 
       const infoMap = {
         'Date': '.match-date',
         'Time': '.match-time',
         'Opponent': '.match-opponent',
         'Venue': '.match-venue',
-        'Coach': '.match-coach'
+        'Coach': '.match-coach',
+		'Team': '.sheet-title'
       };
+	  
+	  // Check if Opponent is Pending
+	  const opponentRow = range.values.find(([label]) => label === 'Opponent');
+	  const isPending = opponentRow && opponentRow[1] === 'Pending';
+	  
+	  if (isPending) {
+	  // Handle "no Fixture"
+	  const teamRow = range.values.find(([label]) => label === 'Team');
+	  const title = clone.querySelector('.sheet-title');
+	  if (title) {
+		title.textContent = `${teamRow ? teamRow[1] : ''} — no Fixture`;
+	  }
+	  
+	    // Remove all mapped list elements so headings don't show
+  // Remove the entire info block
+  const infoBlock = clone.querySelector('.match-info');
+  if (infoBlock) infoBlock.remove();
+
+
+
+
+	  // Add CSS class for orange styling
+	  const section = clone.querySelector('.sheet-section');
+	  if (section) section.classList.add('no-fixture');
+	        // Add to the fragment
+      fragment.appendChild(clone);
+
+	} else {
+
+
 
       // Build <div> rows
       range.values.forEach(([label, value]) => {
@@ -164,9 +204,11 @@
           if (target) target.textContent = value;
         }
       });
-
       // Add to the fragment
-      fragment.appendChild(clone);
+      fragment.appendChild(clone);	  
+	  }
+
+
     });
 
     // Add the fragment to the document
