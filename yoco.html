@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="description" content="Your page description here" />
+  <meta name="author" content="Your Name or Organization" />
+  <meta name="keywords" content="Victoria CC, Cricket, Youth Sports, Match Reports" />
+  <title>Victoria CC | Home</title>
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+  />
+</head>
+<body>
+
+
+
+  <!-- Main Content -->
+  <main class="container">
+    <h1 class="mt-5">Welcome to Victoria Cricket Club</h1>
+    <p class="lead">This is your starting point for building a modern, responsive cricket club website.</p>
+  </main>
+  
+<form id="paymentForm" class="p-4 border rounded shadow-sm bg-light"><form id="paymentForm" class="p-4 border rounded shadow-sm bg-light">
+  <!-- Full Name -->
+  <div class="mb-2">
+    <label for="customerName" class="form-label">Full Name</label>
+    <input type="text" class="form-control" id="customerName" name="customerName" required value="Rob Rademeyer">
+  </div>
+  
+<!-- Mobile Number -->
+<div class="mb-2">
+  <label for="mobileNumber" class="form-label">Mobile Number</label>
+  <input type="tel" class="form-control" id="mobileNumber" name="mobileNumber" placeholder="e.g. 0891234567" required value="0832272745">
+</div>  
+
+  <!-- Email -->
+  <div class="mb-2">
+    <label for="customerEmail" class="form-label">Email Address</label>
+    <input type="email" class="form-control" id="customerEmail" name="customerEmail" required value="yoco@rob.co.za">
+  </div>
+
+  <!-- Raffle Option -->
+  <div class="mb-2">
+    <label for="raffleOption" class="form-label">Select Raffle</label>
+    <select class="form-select" id="raffleOption" name="raffleOption" required>
+      <option value="" disabled selected>Select an option</option>
+      <option value="raffle01">Single Raffle Ticket [R25]</option>
+      <option value="raffle05">Four Raffle Tickets + One Free [R100]</option>
+      <option value="ticket01">Single Fundraiser Ticket [R50]</option>
+    </select>
+  </div>
+
+  <!-- Quantity -->
+  <div class="mb-2">
+    <label for="quantity" class="form-label">Quantity</label>
+    <input type="number" class="form-control" id="quantity" name="quantity" min="1" value="1" required>
+  </div>
+  
+<!-- Formatted visible amount (Rands, read-only) -->
+<div class="mb-2">
+  <label for="amountDisplay" class="form-label">Amount</label>
+  <input type="text" class="form-control" id="amountDisplay" name="amountDisplay" readonly>
+</div>
+
+<!-- Hidden cents field (this one goes to Worker 1 / Yoco) -->
+<input type="hidden" id="amount" name="amount">
+
+  <button type="submit" class="btn btn-primary w-100">Proceed to Payment</button>
+</form>
+
+
+<script>
+// Define base prices (per unit, in cents)
+const pricing = {
+  raffle01: 2500,
+  raffle05: 10000,
+  ticket01: 5000
+};
+
+const raffleOptionField = document.getElementById("raffleOption");
+const quantityField = document.getElementById("quantity");
+const amountDisplayField = document.getElementById("amountDisplay"); // visible (R)
+const amountHiddenField = document.getElementById("amount");         // hidden (cents)
+
+// Function to update both display and hidden fields
+function updateAmount() {
+  const raffleOption = raffleOptionField.value;
+  const quantity = parseInt(quantityField.value) || 1;
+
+  if (pricing[raffleOption]) {
+    const totalCents = pricing[raffleOption] * quantity;
+    const totalRand = (totalCents / 100).toFixed(2);
+
+    // Update visible formatted field
+    amountDisplayField.value = `R${totalRand}`;
+
+    // Update hidden raw cents field
+    amountHiddenField.value = totalCents;
+  } else {
+    amountDisplayField.value = "";
+    amountHiddenField.value = "";
+  }
+}
+
+function generateUUID() {
+  // RFC4122 version 4 compliant UUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = crypto.getRandomValues(new Uint8Array(1))[0] % 16;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+// Listen for changes to dropdown and quantity
+raffleOptionField.addEventListener("change", updateAmount);
+quantityField.addEventListener("input", updateAmount);
+
+// Run initial update when page loads
+updateAmount();
+
+
+
+document.getElementById("paymentForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+
+  const payload = {
+    paymentid: generateUUID(),                  // UUID for this submission
+    customername: e.target.customerName.value,
+    customeremail: e.target.customerEmail.value,
+	customermobile: e.target.mobileNumber.value,
+    raffleoption: e.target.raffleOption.value,
+    quantity: parseInt(e.target.quantity.value),
+    amount: parseInt(e.target.amount.value), // Hidden cents value, passed to Worker 1 / Yoco
+  };
+
+  console.log("Payload sent to Cloudflare Worker:", payload);
+
+  fetch("https://online-yoco-charge.victoriajuniorcricketclub.workers.dev/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      console.log("Worker 1 response:", data);
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+      } else {
+        alert("Payment setup failed — missing redirectUrl.");
+      }
+    })
+    .catch((err) => {
+      console.error("Error calling Worker 1:", err);
+      alert("Something went wrong — please try again.");
+    });
+});
+</script>
+
+<!-- Bootstrap JS Bundle (includes Popper) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js">
+</body>
+</html>
