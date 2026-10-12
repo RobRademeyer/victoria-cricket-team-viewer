@@ -34,7 +34,7 @@
 
 /* Default: desktop inline */
 .sheet-section.no-fixture .sheet-title .fixture-status {
-  <!-- font-size: 1.2em;          /* same size as team name */ -->
+  /* font-size: 1.2em;  (same size as team name) */
   margin-left: 0.5em;        /* spacing */
   /*color: #ffffff;*/
 }
@@ -79,7 +79,7 @@
     }
 
     @media (max-width: 600px) {
-      <!-- .sheet-title {font-size: 1.4em;} -->
+      /* .sheet-title {font-size: 1.4em;} */
       .match-info {font-size: 1em;}
     }
 	
@@ -104,6 +104,20 @@
       animation: spin 1s linear infinite;
       margin: 0 auto;
     }
+
+    /* Load-error banner: deliberately unlike the green/orange fixture cards */
+    .load-error {
+      background: #fdecea;
+      border: 2px solid #b71c1c;
+      color: #7f1d1d;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 30px;
+      line-height: 1.5;
+    }
+    .load-error .load-error-title { font-weight: bold; font-size: 1.15em; margin-bottom: 6px; }
+    .load-error details { margin-top: 10px; font-size: 0.9em; }
+    .load-error pre { white-space: pre-wrap; word-break: break-word; background: #fff; padding: 10px; border-radius: 6px; margin: 8px 0 0; }
 
     @keyframes spin {
       0% { transform: rotate(0deg); }
@@ -159,12 +173,85 @@
   // And finally, build the URL to use in the Fetch
   const vUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchGet?${oParams.toString()}`;
 
+  // Shows a clearly-styled error banner. Friendly line on top, technical detail underneath.
+  // Add ?debug=1 to the page URL to have the detail open by default.
+  function showLoadError(vError) {
+    const debug = new URLSearchParams(window.location.search).get('debug') === '1';
+    let headline;
+    if (vError && vError.kind === 'api') {
+      headline = 'Fixtures could not be loaded (Google Sheets returned HTTP ' + vError.httpStatus + ').';
+    } else if (vError && vError.kind === 'data') {
+      headline = 'Fixtures could not be loaded (unexpected response from Google Sheets).';
+    } else if (vError instanceof TypeError && /fetch|network|load failed/i.test(vError.message)) {
+      headline = 'Fixtures could not be loaded (network problem or request blocked).';
+    } else {
+      headline = 'Fixtures were loaded but could not be displayed (unexpected data).';
+    }
+
+    const lines = [];
+    lines.push('Message: ' + (vError && vError.message ? vError.message : String(vError)));
+    if (vError && vError.httpStatus) lines.push('HTTP status: ' + vError.httpStatus);
+    if (vError && vError.apiStatus)  lines.push('API status: ' + vError.apiStatus);
+    lines.push('Request: ' + vUrl.replace(apiKey, '[key hidden]'));
+    lines.push('Page: ' + window.location.href);
+    lines.push('Time: ' + new Date().toISOString());
+
+    const box = document.createElement('div');
+    box.className = 'load-error';
+    box.setAttribute('role', 'alert');
+
+    const title = document.createElement('div');
+    title.className = 'load-error-title';
+    title.textContent = headline;
+    box.appendChild(title);
+
+    const hint = document.createElement('div');
+    hint.textContent = 'Please try again later. If this keeps happening, the page owner needs to check the fixtures spreadsheet.';
+    box.appendChild(hint);
+
+    const details = document.createElement('details');
+    if (debug) details.open = true;
+    const summary = document.createElement('summary');
+    summary.textContent = 'Technical details';
+    details.appendChild(summary);
+    const pre = document.createElement('pre');
+    pre.textContent = lines.join('\n');
+    details.appendChild(pre);
+    box.appendChild(details);
+
+    const out = document.getElementById('output');
+    out.textContent = '';
+    out.appendChild(box);
+  }
+
   // Turn on the spinner
   document.getElementById('spinner').classList.remove('hidden');
 
   // Now lets fetch the data
   fetch(vUrl)
-  .then(fetchResult => fetchResult.json())
+  .then(fetchResult => {
+    // Always read the body, even on HTTP errors, so Google's own message is not lost
+    return fetchResult.text().then(bodyText => {
+      let body = null;
+      try { body = JSON.parse(bodyText); } catch (e) { /* body was not JSON */ }
+
+      if (!fetchResult.ok || (body && body.error)) {
+        const apiErr = (body && body.error) ? body.error : {};
+        const err = new Error(apiErr.message || bodyText.slice(0, 300) || 'No response body');
+        err.kind = 'api';
+        err.httpStatus = fetchResult.status;
+        err.apiStatus = apiErr.status || '';
+        throw err;
+      }
+      if (!body || !Array.isArray(body.valueRanges)) {
+        const err = new Error('Response did not contain valueRanges');
+        err.kind = 'data';
+        err.httpStatus = fetchResult.status;
+        throw err;
+      }
+      return body;
+    });
+  })
   .then(jsonData => {
     const fragment = document.createDocumentFragment();
     const template = document.getElementById('sheet-block');
@@ -243,7 +330,7 @@
   })
   .catch(vError => {
     console.error('Fetch error:', vError);
-    document.getElementById('output').textContent = 'Failed to load fixtures.';
+    showLoadError(vError);
   })
   .finally(() => {document.getElementById('spinner').classList.add('hidden')});
 </script>
